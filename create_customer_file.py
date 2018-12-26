@@ -36,6 +36,7 @@ import time
 
 #variable
 file
+DBFileName = "StringTrans.db"
 
 
 def read_excel_to_flie(projectname, filename):
@@ -48,7 +49,7 @@ def read_excel_to_flie(projectname, filename):
     assert sheet.cell(0, 1).value == "#English", '***The XLS Format is not Correct, Please keep English in the frist rank!***'
 
     #SQL
-    conn = sqlite3.connect("demo.db")
+    conn = sqlite3.connect(DBFileName)
     c = conn.cursor()
     #SQL
 
@@ -72,21 +73,27 @@ def read_excel_to_flie(projectname, filename):
                 trans = cell_value = sheet.cell(row,rank).value
                 proj = projectname
                 filen = filename
-                result = c.execute('''SELECT * FROM StringTrans WHERE  eng= ? AND lang = ? AND trans = ? AND proj = ? AND filename = ? ''', (eng, lang, trans, proj, filename))
-                result_count = result.fetchall()
-                if len(result_count) > 0:
-                    row += 1
-                    continue
-                else:
-                    result = c.execute('''SELECT * FROM StringTrans WHERE  eng= ? AND lang = ? AND trans = ? ''', (eng, lang, trans))
-                    result_count = result.fetchall()
-                    if len(result_count) > 0:
-                        print "2222"
-                        pass
+                Result_Like = c.execute('''SELECT * FROM StringTrans WHERE  eng= ? AND lang = ? AND trans = ? ''', (eng, lang, trans))
+                Result_Like_Count = Result_Like.fetchall()
+                if len(Result_Like_Count) > 0:
+                    Result_Same = c.execute('''SELECT * FROM StringTrans WHERE  eng= ? AND lang = ? AND trans = ? AND proj = ? AND filename = ? ''', (eng, lang, trans, proj, filename))
+                    Result_Same_count = Result_Same.fetchall()
+                    if len(Result_Same_count) > 0: #Skip the same English string in one Sheet
+                        row += 1
+                        continue
                     else:
-                        c.execute('''INSERT INTO StringTrans VALUES (?, ?, ?, ?, ?, 1)''', (eng, lang, trans, proj, filen))
+                        #Need to Update
+                        for tIndex in Result_Like_Count:
+                            AddProj = tIndex[3] + '_' + proj
+                            AddFilen = tIndex[4] + '_' + filen
+                            AddTime = tIndex[5] + 1
+                            c.execute('''UPDATE StringTrans SET time = ? ,proj = ? ,filename = ? WHERE  eng = ? AND lang = ? AND trans = ? ''', (AddTime, AddProj, AddFilen, eng, lang, trans))
+                            break
+                else:
+                    c.execute('''INSERT INTO StringTrans VALUES (?, ?, ?, ?, ?, 1)''', (eng, lang, trans, proj, filen))
                 #SQL
 
+                #Convert XLS to txt
                 #Table 1
                 cell_value = sheet.cell(row, 1).value #English
                 if type(cell_value) == float:
@@ -115,7 +122,6 @@ def read_excel_to_flie(projectname, filename):
                 file.write(filename)
                 file.write('\r\n')      #change row in file
                 row += 1
-        #file.write('\r\n')      #change row in file
         row = 1
         rank += 1
 
@@ -124,12 +130,11 @@ def read_excel_to_flie(projectname, filename):
     conn.close()
     #SQL
 
-    #LL.Linklist_show()
+def sqllite3_create():
 
-def sqllite3_demo():
-
-    os.remove("demo.db")
-    conn = sqlite3.connect("demo.db")
+    if os.path.exists(DBFileName):
+        os.remove(DBFileName)
+    conn = sqlite3.connect(DBFileName)
 
     c = conn.cursor()
 
@@ -148,16 +153,14 @@ def sqllite3_demo():
 if __name__ == '__main__':
     ProjectName = sys.argv[1]
     filename = sys.argv[2]
-    print time.strftime('%Y.%m.%d.%H.%M.%S',time.localtime(time.time()))
+    print 'Start:' + time.strftime('%Y.%m.%d.%H.%M.%S',time.localtime(time.time()))
     #for i in range(1, len(sys.argv)):
         #print "参数", i, sys.argv[i]
-    sqllite3_demo()
+    sqllite3_create()
     OutFileName = './StringTranslation_' + ProjectName + '_' + filename + '.txt'
     file = open(OutFileName, 'w') #a->追加写 w->只写 r->只读 r+->读写
     file.seek(0)
     read_excel_to_flie(ProjectName, filename)
-    #print '已生成翻译文件'
     file.close
-    print time.strftime('%Y.%m.%d.%H.%M.%S',time.localtime(time.time()))
+    print 'End:' + time.strftime('%Y.%m.%d.%H.%M.%S',time.localtime(time.time()))
     sys.exit(0)
-
