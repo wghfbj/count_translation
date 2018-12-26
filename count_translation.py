@@ -86,7 +86,24 @@ def read_excel_to_flie(projectname, filename):
                 trans = cell_value = sheet.cell(row,rank).value
                 proj = projectname
                 filen = filename
-                SqlHand.execute('''INSERT INTO StringTrans VALUES (?, ?, ?, ?, ?, 1)''', (eng, lang, trans, proj, filen))
+                Result_Like = SqlHand.execute('''SELECT proj, filename, time FROM StringTrans WHERE  eng= ? AND lang = ? AND trans = ? ''', (eng, lang, trans))
+                Result_Like_Count = Result_Like.fetchall()
+                if len(Result_Like_Count) > 0:
+                    Result_Same = SqlHand.execute('''SELECT eng FROM StringTrans WHERE  eng= ? AND lang = ? AND trans = ? AND proj = ? AND filename = ? ''', (eng, lang, trans, proj, filename))
+                    Result_Same_count = Result_Same.fetchall()
+                    if len(Result_Same_count) > 0: #Skip the same English string in one Sheet
+                        row += 1
+                        continue
+                    else:
+                        #Need to Update
+                        for tIndex in Result_Like_Count: #使用迭代器查询
+                            AddProj = tIndex[0] + '_' + proj
+                            AddFilen = tIndex[1] + '_' + filen
+                            AddTime = tIndex[2] + 1
+                            SqlHand.execute('''UPDATE StringTrans SET time = ? ,proj = ? ,filename = ? WHERE  eng = ? AND lang = ? AND trans = ? ''', (AddTime, AddProj, AddFilen, eng, lang, trans))
+                            break
+                else:
+                    SqlHand.execute('''INSERT INTO StringTrans VALUES (?, ?, ?, ?, ?, 1)''', (eng, lang, trans, proj, filen))
                 #SQL
 
                 #Convert XLS to txt
