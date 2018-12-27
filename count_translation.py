@@ -95,7 +95,7 @@ def read_excel_to_flie(projectname, filename):
                         row += 1
                         continue
                     else:
-                        #Need to Update
+                        #Need to Update proj & filename & time
                         for tIndex in Result_Like_Count: #使用迭代器查询
                             AddProj = tIndex[0] + '_' + proj
                             AddFilen = tIndex[1] + '_' + filen
@@ -140,7 +140,7 @@ def read_excel_to_flie(projectname, filename):
         rank += 1
 
     CommitCount += 1
-    if CommitCount > 50: #For Saving time to commit data to DB
+    if CommitCount > 100: #For Saving time to commit data to DB
         CommitCount = 0
         ConSql.commit()
 
@@ -151,13 +151,13 @@ def sqllite3_create():
     global ConSql
     global DBFileName
     global SqlHand
-    if os.path.exists(DBFileName):
-        os.remove(DBFileName)   #For Debug
+    # if os.path.exists(DBFileName):   #For Debug
+    #     os.remove(DBFileName)
     ConSql = sqlite3.connect(DBFileName)
 
     SqlHand = ConSql.cursor()
 
-    SqlHand.execute('''CREATE TABLE StringTrans
+    SqlHand.execute('''CREATE TABLE IF NOT EXISTS 'StringTrans'
           (eng varchar(100) DEFAULT NULL,
            lang varchar(50) DEFAULT NULL,
            trans varchar(100) DEFAULT NULL,
