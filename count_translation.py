@@ -151,10 +151,8 @@ def sqllite3_create():
     global ConSql
     global DBFileName
     global SqlHand
-    # if os.path.exists(DBFileName):   #For Debug
-    #     os.remove(DBFileName)
-    ConSql = sqlite3.connect(DBFileName)
 
+    ConSql = sqlite3.connect(DBFileName)
     SqlHand = ConSql.cursor()
 
     SqlHand.execute('''CREATE TABLE IF NOT EXISTS 'StringTrans'
@@ -179,10 +177,19 @@ def sqllite3_closefile():
     global ConSql
     ConSql.commit()
     ConSql.close()
+
+def sqllite3_clearfile():
+    global DBFileName
+    if os.path.exists(DBFileName):   #For Debug
+        os.remove(DBFileName)
+        print "Clear file finish"
 #SQL
 
 
 if __name__ == '__main__':
+    if sys.argv[1] == "clear":
+        sqllite3_clearfile()
+        sys.exit(0)
     ProjectName = sys.argv[1]
     filename = sys.argv[2]
     print 'Testing Start Time:' + time.strftime('%Y.%m.%d.%H.%M.%S',time.localtime(time.time()))
