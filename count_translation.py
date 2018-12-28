@@ -33,6 +33,7 @@ reload(sys)
 sys.setdefaultencoding( "utf-8" )
 from datetime import date,datetime
 import time
+import gc
 
 #variable
 global file
@@ -56,12 +57,12 @@ def read_excel_to_flie(projectname, filename):
     global CommitCount
     workbook = xlrd.open_workbook(filename, formatting_info=True)
 
-    sheet = workbook.sheet_by_name(u'word')
+    sheet = workbook.sheet_by_index(0) #Frist sheet
     if sheet.nrows == 0:
         print '[ERROR]***The XLS file has nothing!***' + projectname + '_' + filename
         return
     if sheet.cell(0, 1).value != "#English":
-        print '[ERROR]***The XLS Format is not Correct, Please keep English in the frist rank!***' + projectname + '_' + filename
+        print '[ERROR]***The XLS Format is not Correct, Please keep English in the frist rank!***Erro file ==>> ' + projectname + '_' + filename
         return
     # assert sheet.nrows > 0, '[ERROR]***The XLS file has nothing!***'
     # assert sheet.cell(0, 1).value == "#English", '[ERROR]***The XLS Format is not Correct, Please keep English in the frist rank!***'
@@ -144,6 +145,80 @@ def read_excel_to_flie(projectname, filename):
         CommitCount = 0
         ConSql.commit()
 
+def set_style(name,height,bold=False,back_color=255,is_border=False):
+
+    style = xlwt.XFStyle() # 初始化样式
+
+    font = xlwt.Font() # 为样式创建字体
+    font.name = name # 'Times New Roman'
+    font.bold = bold
+    font.color_index = 4
+    font.height = height
+
+    style.font = font
+
+    if is_border == True:
+        borders = xlwt.Borders()
+        borders.left = 5
+        borders.right = 5
+        borders.top = 5
+        borders.bottom = 5
+        style.borders = borders
+
+    pattern = xlwt.Pattern()
+    pattern.pattern = xlwt.Pattern.SOLID_PATTERN
+    #pattern.pattern_fore_colour = back_color #设置单元格背景颜色 0 = Black, 1 = White, 2 = Red, 3 = Green, 4 = Blue, 5 = Yellow, 6 = Magenta
+
+    style.pattern = pattern
+
+    return style
+
+def write_excel_to_flie(OutFilename, DBFilename):
+    global ConSql
+    global SqlHand
+
+    if os.path.exists(OutFilename):
+        os.remove(OutFilename)
+
+    SheetOut = xlwt.Workbook()
+
+    Sheet1 = SheetOut.add_sheet(u'CountTranslation1', cell_overwrite_ok=True)
+    Title = [u'#English', u'#language', u'#Translation', u'#Project', u'#Filename', u'#Times']
+    for tIndex in range(0,len(Title)):
+        Sheet1.write(0, tIndex, Title[tIndex],set_style('Times New Roman', 220, False))
+
+    #Write DB to Xls file
+    ConSql = sqlite3.connect(DBFilename)
+    SqlHand = ConSql.cursor()
+    SqlHand.execute('''SELECT * FROM StringTrans''')
+    Result_All_Count = SqlHand.fetchone() #Error will return None
+    if len(Result_All_Count) > 0:
+        row = 1
+        SheetCount = 2
+        SheetStyle = set_style('Times New Roman', 220, False)
+        for tIndexx in SqlHand.execute('''SELECT * FROM StringTrans'''): #使用迭代器查询
+            # eng = tIndexx[0]
+            # lang = tIndexx[1]
+            # trans = tIndexx[2]
+            # proj = tIndexx[3]
+            # filen = tIndexx[4]
+            # time = tIndexx[5]
+            for tIndexy in range(0, 6):
+                Sheet1.write(row, tIndexy, tIndexx[tIndexy], SheetStyle)
+            if row == 65535: #Max row of one sheet in XLS
+                row = 0
+                Sheet1 = SheetOut.add_sheet(u'CountTranslation' + str(SheetCount), cell_overwrite_ok=True)
+                for tIndex in range(0,len(Title)):
+                    Sheet1.write(0, tIndex, Title[tIndex],set_style('Times New Roman', 220, False))
+                SheetCount += 1
+                SheetOut.save(OutFilename);
+            row += 1
+
+    ConSql.close()
+    #Write DB to Xls file
+
+    SheetOut.save(OutFilename);
+    print "Create release file " + OutFilename + " finish!"
 
 #SQL
 def sqllite3_create():
@@ -151,6 +226,9 @@ def sqllite3_create():
     global ConSql
     global DBFileName
     global SqlHand
+
+    if os.path.exists(DBFileName):   #For Debug #For Debug #For Debug #For Debug
+        os.remove(DBFileName)
 
     ConSql = sqlite3.connect(DBFileName)
     SqlHand = ConSql.cursor()
@@ -171,7 +249,7 @@ def sqllite3_openfile():
     global SqlHand
     ConSql = sqlite3.connect(DBFileName)
     SqlHand = ConSql.cursor()
-    SqlHand.execute('PRAGMA synchronous = OFF') #Speed up saving time
+    SqlHand.execute('PRAGMA synchronous = OFF') #Speed up insert time
 
 def sqllite3_closefile():
     global ConSql
@@ -187,12 +265,20 @@ def sqllite3_clearfile():
 
 
 if __name__ == '__main__':
+    print 'Testing Start Time:' + time.strftime('%Y.%m.%d.%H.%M.%S',time.localtime(time.time()))
     if sys.argv[1] == "clear":
         sqllite3_clearfile()
+        print 'Testing End Time:' + time.strftime('%Y.%m.%d.%H.%M.%S',time.localtime(time.time()))
+        sys.exit(0)
+    if sys.argv[1] == "release":
+        if len(sys.argv) < 4:
+            print "[ERROR]Please type output & db filename!"
+        else:
+            write_excel_to_flie(sys.argv[2], sys.argv[3])
+        print 'Testing End Time:' + time.strftime('%Y.%m.%d.%H.%M.%S',time.localtime(time.time()))
         sys.exit(0)
     ProjectName = sys.argv[1]
     filename = sys.argv[2]
-    print 'Testing Start Time:' + time.strftime('%Y.%m.%d.%H.%M.%S',time.localtime(time.time()))
     #for i in range(1, len(sys.argv)):
         #print "参数", i, sys.argv[i]
     sqllite3_create()
@@ -206,7 +292,7 @@ if __name__ == '__main__':
         filename = sys.argv[i]
         read_excel_to_flie(ProjectName, filename)
         # file.close
-        print "进度: " + str(float(i) / len(sys.argv) * 100) + "%"
+        print "进度: " + str(round((float(i) / len(sys.argv) * 100), 1)) + "%"
     sqllite3_closefile()
     print "进度: 100%"
     print 'Testing End Time:' + time.strftime('%Y.%m.%d.%H.%M.%S',time.localtime(time.time()))
