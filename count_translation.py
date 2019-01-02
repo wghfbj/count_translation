@@ -262,7 +262,7 @@ def sqllite3_create():
            filename varchar(1000) DEFAULT NULL,
            time INTEGER DEFAULT 1)''')
 
-    SqlHand.execute('''CREATE INDEX CountTrans ON 'StringTrans' (eng, lang, trans)''')
+    SqlHand.execute('''CREATE INDEX IF NOT EXISTS 'CountTrans' ON 'StringTrans' (eng, lang, trans)''')
 
     ConSql.commit()
     ConSql.close()
