@@ -66,6 +66,7 @@ def read_excel_to_flie(projectname, filename):
         return
     # assert sheet.nrows > 0, '[ERROR]***The XLS file has nothing!***'
     # assert sheet.cell(0, 1).value == "#English", '[ERROR]***The XLS Format is not Correct, Please keep English in the frist rank!***'
+    print 'Analysis proj:' + projectname + ' file:' + filename
 
     row = 1   # start at '0' 行
     rank = sheet.ncols - 1  # start at '0' 列
@@ -84,6 +85,7 @@ def read_excel_to_flie(projectname, filename):
                 #SQL
                 eng = sheet.cell(row, 1).value
                 lang = sheet.cell(0, rank).value
+                lang = lang.capitalize() #统一大小写
                 trans = cell_value = sheet.cell(row,rank).value
                 proj = projectname
                 filen = filename
@@ -98,8 +100,12 @@ def read_excel_to_flie(projectname, filename):
                     else:
                         #Need to Update proj & filename & time
                         for tIndex in Result_Like_Count: #使用迭代器查询
-                            AddProj = tIndex[0] + '_' + proj
-                            AddFilen = tIndex[1] + '_' + filen
+                            AddProj = tIndex[0]
+                            if AddProj.find(proj) == -1:
+                                AddProj = tIndex[0] + '_' + proj
+                            AddFilen = tIndex[1]
+                            if AddFilen.find(filen) == -1:
+                                AddFilen = tIndex[1] + '_' + filen
                             AddTime = tIndex[2] + 1
                             SqlHand.execute('''UPDATE StringTrans SET time = ? ,proj = ? ,filename = ? WHERE  eng = ? AND lang = ? AND trans = ? ''', (AddTime, AddProj, AddFilen, eng, lang, trans))
                             break
@@ -180,12 +186,10 @@ def write_excel_to_flie(OutFilename, DBFilename):
     if os.path.exists(OutFilename):
         os.remove(OutFilename)
 
-    SheetOut = xlwt.Workbook()
+    SheetOut = xlwt.Workbook(encoding = 'utf-8')
 
-    Sheet1 = SheetOut.add_sheet(u'CountTranslation1', cell_overwrite_ok=True)
-    Title = [u'#English', u'#language', u'#Translation', u'#Project', u'#Filename', u'#Times']
-    for tIndex in range(0,len(Title)):
-        Sheet1.write(0, tIndex, Title[tIndex],set_style('Times New Roman', 220, False))
+    SheetStyle = set_style('Times New Roman', 220, False)
+    Title = [u'#英文', u'#语言', u'#翻译', u'#方案', u'#文件名', u'#次数']
 
     #Write DB to Xls file
     ConSql = sqlite3.connect(DBFilename)
@@ -194,22 +198,39 @@ def write_excel_to_flie(OutFilename, DBFilename):
     Result_All_Count = SqlHand.fetchone() #Error will return None
     if len(Result_All_Count) > 0:
         row = 1
-        SheetCount = 2
-        SheetStyle = set_style('Times New Roman', 220, False)
-        for tIndexx in SqlHand.execute('''SELECT * FROM StringTrans'''): #使用迭代器查询
+        SheetCount = 1
+        pre_lang = 0 #Use for adding new translation sheet
+        
+        for tIndexx in SqlHand.execute('''SELECT * FROM StringTrans order by lang, eng'''): #使用迭代器查询
             # eng = tIndexx[0]
             # lang = tIndexx[1]
+            now_lang = tIndexx[1]
+            if pre_lang == 0:
+                pre_lang = now_lang
+                Sheet1 = SheetOut.add_sheet(str(now_lang), cell_overwrite_ok=True)
+                for tIndex in range(0,len(Title)):
+                    Sheet1.write(0, tIndex, Title[tIndex], SheetStyle)
+                row = 1
+            elif pre_lang != now_lang:
+                pre_lang = now_lang
+                Sheet1 = SheetOut.add_sheet(str(now_lang), cell_overwrite_ok=True)
+                for tIndex in range(0,len(Title)):
+                    Sheet1.write(0, tIndex, Title[tIndex], SheetStyle)
+                row = 1
+                SheetCount = 1
             # trans = tIndexx[2]
             # proj = tIndexx[3]
             # filen = tIndexx[4]
             # time = tIndexx[5]
             for tIndexy in range(0, 6):
+                if tIndexy == 4:
+                    continue
                 Sheet1.write(row, tIndexy, tIndexx[tIndexy], SheetStyle)
             if row == 65535: #Max row of one sheet in XLS
-                row = 0
-                Sheet1 = SheetOut.add_sheet(u'CountTranslation' + str(SheetCount), cell_overwrite_ok=True)
+                row = 1
+                Sheet1 = SheetOut.add_sheet(str(now_lang) + str(SheetCount), cell_overwrite_ok=True)
                 for tIndex in range(0,len(Title)):
-                    Sheet1.write(0, tIndex, Title[tIndex],set_style('Times New Roman', 220, False))
+                    Sheet1.write(0, tIndex, Title[tIndex], SheetStyle)
                 SheetCount += 1
                 SheetOut.save(OutFilename);
             row += 1
@@ -227,19 +248,21 @@ def sqllite3_create():
     global DBFileName
     global SqlHand
 
-    if os.path.exists(DBFileName):   #For Debug #For Debug #For Debug #For Debug
-        os.remove(DBFileName)
+    # if os.path.exists(DBFileName):   #For Debug #For Debug #For Debug #For Debug
+    #     os.remove(DBFileName)
 
     ConSql = sqlite3.connect(DBFileName)
     SqlHand = ConSql.cursor()
 
     SqlHand.execute('''CREATE TABLE IF NOT EXISTS 'StringTrans'
           (eng varchar(100) DEFAULT NULL,
-           lang varchar(50) DEFAULT NULL,
+           lang varchar(50) COLLATE NOCASE DEFAULT NULL,
            trans varchar(100) DEFAULT NULL,
            proj varchar(500) DEFAULT NULL,
            filename varchar(1000) DEFAULT NULL,
            time INTEGER DEFAULT 1)''')
+
+    SqlHand.execute('''CREATE INDEX CountTrans ON 'StringTrans' (eng, lang, trans)''')
 
     ConSql.commit()
     ConSql.close()
@@ -265,17 +288,17 @@ def sqllite3_clearfile():
 
 
 if __name__ == '__main__':
-    print 'Testing Start Time:' + time.strftime('%Y.%m.%d.%H.%M.%S',time.localtime(time.time()))
+    print 'Start Time:' + time.strftime('%Y.%m.%d.%H.%M.%S',time.localtime(time.time()))
     if sys.argv[1] == "clear":
         sqllite3_clearfile()
-        print 'Testing End Time:' + time.strftime('%Y.%m.%d.%H.%M.%S',time.localtime(time.time()))
+        print 'End Time:' + time.strftime('%Y.%m.%d.%H.%M.%S',time.localtime(time.time()))
         sys.exit(0)
     if sys.argv[1] == "release":
         if len(sys.argv) < 4:
             print "[ERROR]Please type output & db filename!"
         else:
             write_excel_to_flie(sys.argv[2], sys.argv[3])
-        print 'Testing End Time:' + time.strftime('%Y.%m.%d.%H.%M.%S',time.localtime(time.time()))
+        print 'End Time:' + time.strftime('%Y.%m.%d.%H.%M.%S',time.localtime(time.time()))
         sys.exit(0)
     ProjectName = sys.argv[1]
     filename = sys.argv[2]
@@ -295,5 +318,5 @@ if __name__ == '__main__':
         print "进度: " + str(round((float(i) / len(sys.argv) * 100), 1)) + "%"
     sqllite3_closefile()
     print "进度: 100%"
-    print 'Testing End Time:' + time.strftime('%Y.%m.%d.%H.%M.%S',time.localtime(time.time()))
+    print 'End Time:' + time.strftime('%Y.%m.%d.%H.%M.%S',time.localtime(time.time()))
     sys.exit(0)
