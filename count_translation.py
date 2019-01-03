@@ -55,14 +55,22 @@ def read_excel_to_flie(projectname, filename):
     global ConSql
     global SqlHand
     global CommitCount
+    withEnligh = False
+    EnlishRank = 0
+
     workbook = xlrd.open_workbook(filename, formatting_info=True)
 
     sheet = workbook.sheet_by_index(0) #Frist sheet
     if sheet.nrows == 0:
         print '[ERROR]***The XLS file has nothing!***' + projectname + '_' + filename
         return
-    if sheet.cell(0, 1).value != "#English":
-        print '[ERROR]***The XLS Format is not Correct, Please keep English in the frist rank!***Erro file ==>> ' + projectname + '_' + filename
+    for tindex in range(1, sheet.ncols):
+        if sheet.cell(0, tindex).value == '#English':
+            withEnligh = True
+            EnlishRank = tindex
+            break
+    if withEnligh != True:
+        print '[ERROR]***The XLS Format is not Correct, Please keep English in the XLS!***Erro file ==>> ' + projectname + '_' + filename
         return
     # assert sheet.nrows > 0, '[ERROR]***The XLS file has nothing!***'
     # assert sheet.cell(0, 1).value == "#English", '[ERROR]***The XLS Format is not Correct, Please keep English in the frist rank!***'
@@ -74,7 +82,10 @@ def read_excel_to_flie(projectname, filename):
     #print "row = ", row
     #print "rank = ", rank
 
-    rank = 2 # Enlish+1
+    if EnlishRank == 1:
+        rank = 2 #Skip english rank
+    else:
+        rank = 1 #Skip english rank
 
     while rank <= sheet.ncols - 1:
         while row <= sheet.nrows - 1:
@@ -83,7 +94,7 @@ def read_excel_to_flie(projectname, filename):
                     row += 1
                     continue
                 #SQL
-                eng = sheet.cell(row, 1).value
+                eng = sheet.cell(row, EnlishRank).value
                 lang = sheet.cell(0, rank).value
                 lang = lang.capitalize() #统一大小写
                 trans = cell_value = sheet.cell(row,rank).value
@@ -145,6 +156,8 @@ def read_excel_to_flie(projectname, filename):
                 row += 1
         row = 1
         rank += 1
+        if rank == EnlishRank: #Skip english rank
+            rank += 1
 
     CommitCount += 1
     if CommitCount > 100: #For Saving time to commit data to DB
