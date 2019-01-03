@@ -195,6 +195,7 @@ def set_style(name,height,bold=False,back_color=255,is_border=False):
 def write_excel_to_flie(OutFilename, DBFilename):
     global ConSql
     global SqlHand
+    pre_eng = 0
 
     if os.path.exists(OutFilename):
         os.remove(OutFilename)
@@ -214,8 +215,8 @@ def write_excel_to_flie(OutFilename, DBFilename):
         SheetCount = 1
         pre_lang = 0 #Use for adding new translation sheet
         
-        for tIndexx in SqlHand.execute('''SELECT * FROM StringTrans order by lang, eng'''): #使用迭代器查询
-            # eng = tIndexx[0]
+        for tIndexx in SqlHand.execute('''SELECT * FROM StringTrans order by lang, eng, time DESC'''): #使用迭代器查询
+            now_eng = tIndexx[0]
             # lang = tIndexx[1]
             now_lang = tIndexx[1]
             if pre_lang == 0:
@@ -238,6 +239,9 @@ def write_excel_to_flie(OutFilename, DBFilename):
             for tIndexy in range(0, 6):
                 if tIndexy == 4:
                     continue
+                if pre_eng == now_eng and tIndexy == 0:
+                    continue
+                pre_eng = now_eng
                 Sheet1.write(row, tIndexy, tIndexx[tIndexy], SheetStyle)
             if row == 65535: #Max row of one sheet in XLS
                 row = 1
